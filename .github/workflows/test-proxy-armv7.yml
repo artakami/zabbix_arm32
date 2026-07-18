@@ -1,0 +1,47 @@
+name: Test ARMv7 Proxy Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Zabbix Proxy SQLite3 (ARMv7)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout ARM32 project
+        uses: actions/checkout@v4
+
+      - name: Checkout Zabbix Docker upstream
+        uses: actions/checkout@v4
+        with:
+          repository: zabbix/zabbix-docker
+          ref: 7.4
+          path: upstream
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Show Docker information
+        run: |
+          docker version
+          docker buildx version
+          docker buildx ls
+
+      - name: Build proxy-sqlite3 (ARMv7)
+        working-directory: upstream
+        run: |
+          make bake-target \
+            TARGET=proxy-sqlite3 \
+            OS=alpine \
+            DB=sqlite3 \
+            PLATFORMS=linux/arm/v7 \
+            LOCAL_ZBX_TAG=alpine-7.4-armv7
+
+
+            
