@@ -26,6 +26,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Show Docker information
         run: |
@@ -36,12 +38,23 @@ jobs:
       - name: Build proxy-sqlite3 (ARMv7)
         working-directory: upstream
         run: |
+          make base \
+            OS=alpine \
+            PLATFORMS=linux/arm/v7 \
+            LOCAL_ZBX_TAG=alpine-7.4-armv7
+
+          make builders-sqlite3 \
+            OS=alpine \
+            DB=sqlite3 \
+            PLATFORMS=linux/arm/v7 \
+            LOCAL_ZBX_TAG=alpine-7.4-armv7
+
           make bake-target \
             TARGET=proxy-sqlite3 \
             OS=alpine \
             DB=sqlite3 \
             PLATFORMS=linux/arm/v7 \
-            LOCAL_ZBX_TAG=alpine-7.4-armv7
+            LOCAL_ZBX_TAG=alpine-7.4-armv
 
 
             
