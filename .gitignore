@@ -1,2 +1,5 @@
 # Local upstream clone
 upstream/
+
+# Local Claude Code session settings (machine-specific, not project config)
+.claude/

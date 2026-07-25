@@ -1,0 +1,39 @@
+name: Release proxy-sqlite3 (ARMv7)
+
+on:
+  workflow_dispatch:
+    inputs:
+      zbx_branch:
+        description: "Zabbix branch to release"
+        type: choice
+        options:
+          - "7.0"
+          - "7.4"
+          - all
+        default: all
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.set.outputs.branches }}
+    steps:
+      - id: set
+        run: |
+          if [ "${{ inputs.zbx_branch }}" = "all" ]; then
+            echo 'branches=["7.0","7.4"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "branches=[\"${{ inputs.zbx_branch }}\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: matrix
+    strategy:
+      matrix:
+        branch: ${{ fromJson(needs.matrix.outputs.branches) }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-proxy.yml
+    with:
+      zbx_branch: ${{ matrix.branch }}
