@@ -19,6 +19,10 @@ jobs:
           ref: 7.4
           path: upstream
 
+      - name: Apply ARMv7 patches to upstream
+        working-directory: upstream
+        run: patch -p1 < ../patches/armv7-skip-java-gateway.patch
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:

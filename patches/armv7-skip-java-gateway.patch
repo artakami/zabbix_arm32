@@ -1,0 +1,76 @@
+diff --git a/Dockerfiles/build-base/alpine/Dockerfile b/Dockerfiles/build-base/alpine/Dockerfile
+index 9d4724894..d8faedc23 100644
+--- a/Dockerfiles/build-base/alpine/Dockerfile
++++ b/Dockerfiles/build-base/alpine/Dockerfile
+@@ -27,6 +27,7 @@ RUN set -eux && \
+     ARCH_SUFFIX="$(apk --print-arch)"; \
+     case "$ARCH_SUFFIX" in \
+         riscv64) openjdk_packages='openjdk21 openjdk21-jre-headless' ;; \
++        armv7)   openjdk_packages='' ;; \
+         *)       openjdk_packages='openjdk21 openjdk21-jre-headless' ;; \
+     esac; \
+     INSTALL_PKGS="bash \
+diff --git a/Dockerfiles/build-mysql/alpine/Dockerfile b/Dockerfiles/build-mysql/alpine/Dockerfile
+index 021ae1cac..fa1b45579 100644
+--- a/Dockerfiles/build-mysql/alpine/Dockerfile
++++ b/Dockerfiles/build-mysql/alpine/Dockerfile
+@@ -90,6 +90,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
+     set -eux && \
+     cd "${ZBX_SOURCES_DIR}" && \
+     ./bootstrap.sh && \
++    ARCH_SUFFIX="$(apk --print-arch)"; \
++    case "$ARCH_SUFFIX" in \
++        armv7) java_component='' ;; \
++        *)     java_component='--enable-java' ;; \
++    esac; \
+     ./configure \
+         --datadir=/usr/lib \
+         --libdir=/usr/lib/zabbix \
+@@ -98,7 +103,6 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
+         --enable-ipv6 \
+         --enable-agent \
+         --enable-agent2 \
+-        --enable-java \
+         --enable-proxy \
+         --enable-server \
+         --enable-webservice \
+@@ -114,6 +118,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
+         --with-openssl \
+         --with-ssh \
+         --with-unixodbc \
++        $java_component \
+         --silent && \
+     jobs="${BUILD_JOBS:-$(nproc)}" && \
+     make -j"${jobs}" -s dbschema && \
+diff --git a/Dockerfiles/build-sqlite3/alpine/Dockerfile b/Dockerfiles/build-sqlite3/alpine/Dockerfile
+index 1ed589623..3501ec891 100644
+--- a/Dockerfiles/build-sqlite3/alpine/Dockerfile
++++ b/Dockerfiles/build-sqlite3/alpine/Dockerfile
+@@ -85,6 +85,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
+     set -eux && \
+     cd "${ZBX_SOURCES_DIR}" && \
+     ./bootstrap.sh && \
++    ARCH_SUFFIX="$(apk --print-arch)"; \
++    case "$ARCH_SUFFIX" in \
++        armv7) java_component='' ;; \
++        *)     java_component='--enable-java' ;; \
++    esac; \
+     ./configure \
+         --datadir=/usr/lib \
+         --libdir=/usr/lib/zabbix \
+@@ -93,7 +98,6 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
+         --enable-ipv6 \
+         --enable-agent \
+         --enable-agent2 \
+-        --enable-java \
+         --enable-proxy \
+         --with-ares \
+         --with-ldap \
+@@ -107,6 +111,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
+         --with-openssl \
+         --with-ssh \
+         --with-unixodbc \
++        $java_component \
+         --silent && \
+     jobs="${BUILD_JOBS:-$(nproc)}" && \
+     make -j"${jobs}" -s dbschema && \
