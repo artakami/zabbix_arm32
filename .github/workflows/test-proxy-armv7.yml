@@ -54,7 +54,4 @@ jobs:
             OS=alpine \
             DB=sqlite3 \
             PLATFORMS=linux/arm/v7 \
-            LOCAL_ZBX_TAG=alpine-7.4-armv
-
-
-            
+            LOCAL_ZBX_TAG=alpine-7.4-armv7
