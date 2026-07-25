@@ -7,6 +7,9 @@ jobs:
   build:
     name: Build Zabbix Proxy SQLite3 (ARMv7)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout ARM32 project
@@ -59,3 +62,9 @@ jobs:
             DB=sqlite3 \
             PLATFORMS=linux/arm/v7 \
             LOCAL_ZBX_TAG=alpine-7.4-armv7
+
+      - name: Push image to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag zabbix-proxy-sqlite3:alpine-7.4-armv7 ghcr.io/artakami/zabbix-proxy-sqlite3:alpine-7.4-armv7
+          docker push ghcr.io/artakami/zabbix-proxy-sqlite3:alpine-7.4-armv7
