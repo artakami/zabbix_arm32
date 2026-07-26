@@ -29,6 +29,7 @@ jobs:
   build:
     needs: matrix
     strategy:
+      fail-fast: false
       matrix:
         branch: ${{ fromJson(needs.matrix.outputs.branches) }}
     permissions:

@@ -23,7 +23,7 @@ trap 'docker rm -f "$CID" > /dev/null 2>&1 || true' EXIT
 
 sleep 5
 
-if ! docker ps --filter "id=${CID}" --filter status=running --format '{{.ID}}' | grep -q "$CID"; then
+if [ "$(docker inspect -f '{{.State.Running}}' "$CID" 2> /dev/null)" != "true" ]; then
     echo "FAIL: container exited within 5 seconds" >&2
     docker logs "$CID" >&2 || true
     exit 1
