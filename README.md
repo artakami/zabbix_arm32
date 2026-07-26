@@ -14,7 +14,7 @@ the full investigation, including why it's safe to reintroduce).
 | Component | Status | Image |
 |---|---|---|
 | proxy-sqlite3 | Validated on real hardware (build, run, PSK-encrypted server connection, SNMP) | `ghcr.io/artakami/zabbix-proxy-sqlite3` |
-| agent2 | Not started | — |
+| agent2 | In progress — build pipeline exists, not yet validated on real hardware | `ghcr.io/artakami/zabbix-agent2` |
 
 Tracked Zabbix branches: `7.0`, `7.4` (see [`docs/roadmap.md`](docs/roadmap.md)
 for why not `7.2` or `6.0` yet).

@@ -1,0 +1,87 @@
+name: Build agent2 (ARMv7)
+
+on:
+  workflow_call:
+    inputs:
+      zbx_branch:
+        description: "Upstream zabbix-docker branch to build (e.g. 7.0, 7.4)"
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build & push agent2 (${{ inputs.zbx_branch }}, ARMv7)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout ARM32 project
+        uses: actions/checkout@v4
+
+      - name: Checkout Zabbix Docker upstream
+        uses: actions/checkout@v4
+        with:
+          repository: zabbix/zabbix-docker
+          ref: ${{ inputs.zbx_branch }}
+          path: upstream
+
+      - name: Apply ARMv7 patches to upstream
+        working-directory: upstream
+        run: patch -p1 < "../patches/${{ inputs.zbx_branch }}/armv7-skip-java-gateway.patch"
+
+      - name: Determine full Zabbix version
+        id: version
+        working-directory: upstream
+        run: |
+          suffix="$(grep -oP 'ARG ZBX_VERSION=\$\{MAJOR_VERSION\}\K.*' Dockerfiles/build-mysql/alpine/Dockerfile | head -1)"
+          echo "full_version=${{ inputs.zbx_branch }}${suffix}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
+
+      - name: Build agent2 (ARMv7)
+        working-directory: upstream
+        run: |
+          make base \
+            OS=alpine \
+            PLATFORMS=linux/arm/v7 \
+            LOCAL_ZBX_TAG=alpine-${{ inputs.zbx_branch }}-armv7
+
+          make builders-mysql \
+            OS=alpine \
+            DB=mysql \
+            PLATFORMS=linux/arm/v7 \
+            LOCAL_ZBX_TAG=alpine-${{ inputs.zbx_branch }}-armv7
+
+          make bake-target \
+            TARGET=agent2-mysql \
+            OS=alpine \
+            DB=mysql \
+            PLATFORMS=linux/arm/v7 \
+            LOCAL_ZBX_TAG=alpine-${{ inputs.zbx_branch }}-armv7
+
+      - name: Smoke-test the built image
+        run: |
+          chmod +x scripts/test-image.sh
+          scripts/test-image.sh "zabbix-agent2:alpine-${{ inputs.zbx_branch }}-armv7" zabbix_agent2
+
+      - name: Push image to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          docker tag zabbix-agent2:alpine-${{ inputs.zbx_branch }}-armv7 \
+            ghcr.io/artakami/zabbix-agent2:${{ inputs.zbx_branch }}-armv7
+          docker push ghcr.io/artakami/zabbix-agent2:${{ inputs.zbx_branch }}-armv7
+
+          docker tag zabbix-agent2:alpine-${{ inputs.zbx_branch }}-armv7 \
+            ghcr.io/artakami/zabbix-agent2:${{ steps.version.outputs.full_version }}-armv7
+          docker push ghcr.io/artakami/zabbix-agent2:${{ steps.version.outputs.full_version }}-armv7

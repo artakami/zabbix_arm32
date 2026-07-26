@@ -42,10 +42,20 @@ toolchain on `armv7` (see [`docs/building.md`](building.md)).
   tags (`<branch>-armv7` and `<full-version>-armv7`) to
   `ghcr.io/artakami/zabbix-proxy-sqlite3`, with a smoke test gating the push.
 
-**agent2: not yet started.** Uses the `build-mysql` path (already covered by
-the existing patches), but has never been built, run, or connectivity-tested.
-This is the next real gap — see [`docs/development.md`](development.md) for
-the process to follow (it's largely a repeat of the proxy-sqlite3 work).
+**agent2: build pipeline in place, not yet hardware-validated.**
+
+- `build-agent2.yml` mirrors `build-proxy.yml`, targeting upstream's
+  `agent2-mysql` bake target (`build-mysql`-based). The existing
+  `armv7-skip-java-gateway` patches already cover `build-mysql` — confirmed
+  before adding this component, no new patch was needed.
+- `release.yml` now takes a `component` input (`proxy-sqlite3`, `agent2`,
+  `all`) alongside the branch selector, running both as independent matrix
+  jobs (can't dynamically select a reusable workflow per matrix entry in
+  GitHub Actions, so they're separate jobs rather than one combined matrix).
+- Not yet done: an actual CI run proving the build+smoke-test succeeds, and
+  real-hardware validation (deploy on the same MikroTik device, confirm it
+  connects to a Zabbix server and reports data) — same process as
+  proxy-sqlite3, see [`docs/development.md`](development.md).
 
 ## Tracked versions
 
@@ -70,7 +80,7 @@ to be trusted:
 
 ## Not yet done
 
-- agent2 (see above — the immediate next real gap).
+- agent2 real-hardware validation (see above — the immediate next real gap).
 - Any component beyond proxy-sqlite3 and agent2 (server, web, java-gateway,
   snmptraps) — out of scope until the current two are solid.
 - 6.0 branch support.

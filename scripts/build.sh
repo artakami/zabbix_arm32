@@ -7,12 +7,18 @@ set -euo pipefail
 #
 # Usage: scripts/build.sh <zbx-branch> [target]
 # Example: scripts/build.sh 7.4 proxy-sqlite3
+#          scripts/build.sh 7.4 agent2-mysql
 #
 # Requires: docker buildx with QEMU registered for arm/v7
 # (docker run --privileged --rm tonistiigi/binfmt --install arm)
 
 ZBX_BRANCH="${1:?Usage: $0 <zbx-branch: 7.0|7.4> [target]}"
 TARGET="${2:-proxy-sqlite3}"
+
+# DB backend is the target's suffix after the last hyphen (proxy-sqlite3 ->
+# sqlite3, agent2-mysql -> mysql) -- matches upstream's own bake target
+# naming convention.
+DB="${TARGET##*-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UPSTREAM_DIR="${REPO_ROOT}/upstream"
@@ -41,7 +47,9 @@ LOCAL_TAG="alpine-${ZBX_BRANCH}-armv7"
 
 cd "$UPSTREAM_DIR"
 make base OS=alpine PLATFORMS=linux/arm/v7 LOCAL_ZBX_TAG="$LOCAL_TAG"
-make builders-sqlite3 OS=alpine DB=sqlite3 PLATFORMS=linux/arm/v7 LOCAL_ZBX_TAG="$LOCAL_TAG"
-make bake-target TARGET="$TARGET" OS=alpine DB=sqlite3 PLATFORMS=linux/arm/v7 LOCAL_ZBX_TAG="$LOCAL_TAG"
+make "builders-${DB}" OS=alpine DB="$DB" PLATFORMS=linux/arm/v7 LOCAL_ZBX_TAG="$LOCAL_TAG"
+make bake-target TARGET="$TARGET" OS=alpine DB="$DB" PLATFORMS=linux/arm/v7 LOCAL_ZBX_TAG="$LOCAL_TAG"
 
-echo "Built zabbix-${TARGET}:${LOCAL_TAG}"
+echo "Build complete -- run 'docker images' to see the resulting zabbix-*:${LOCAL_TAG} image"
+echo "(upstream's own docker-bake.hcl decides the exact image name per target, e.g."
+echo " 'proxy-sqlite3' keeps its DB suffix but 'agent2-mysql' produces 'zabbix-agent2')"

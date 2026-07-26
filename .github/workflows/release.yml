@@ -1,4 +1,4 @@
-name: Release proxy-sqlite3 (ARMv7)
+name: Release (ARMv7)
 
 on:
   workflow_dispatch:
@@ -9,6 +9,14 @@ on:
         options:
           - "7.0"
           - "7.4"
+          - all
+        default: all
+      component:
+        description: "Component to release"
+        type: choice
+        options:
+          - proxy-sqlite3
+          - agent2
           - all
         default: all
 
@@ -26,8 +34,9 @@ jobs:
             echo "branches=[\"${{ inputs.zbx_branch }}\"]" >> "$GITHUB_OUTPUT"
           fi
 
-  build:
+  build-proxy:
     needs: matrix
+    if: inputs.component == 'proxy-sqlite3' || inputs.component == 'all'
     strategy:
       fail-fast: false
       matrix:
@@ -36,5 +45,19 @@ jobs:
       contents: read
       packages: write
     uses: ./.github/workflows/build-proxy.yml
+    with:
+      zbx_branch: ${{ matrix.branch }}
+
+  build-agent2:
+    needs: matrix
+    if: inputs.component == 'agent2' || inputs.component == 'all'
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJson(needs.matrix.outputs.branches) }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-agent2.yml
     with:
       zbx_branch: ${{ matrix.branch }}

@@ -36,12 +36,22 @@ local image tagged `zabbix-proxy-sqlite3:alpine-7.4-armv7`.
 
 First argument is the upstream branch (`7.0` or `7.4` currently tracked —
 see [`docs/roadmap.md`](roadmap.md) for why not others). Second argument is
-the bake target; defaults to `proxy-sqlite3`.
+the bake target; defaults to `proxy-sqlite3`. For agent2:
+
+```
+scripts/build.sh 7.4 agent2-mysql
+```
+
+(Note the bake *target* name is `agent2-mysql` — it depends on `build-mysql`
+rather than `build-sqlite3` — but the resulting local image tag is
+`zabbix-agent2:alpine-7.4-armv7`, matching upstream's own `tags=` in
+`docker-bake.hcl`.)
 
 ## Smoke-testing a built image
 
 ```
 scripts/test-image.sh zabbix-proxy-sqlite3:alpine-7.4-armv7 zabbix_proxy
+scripts/test-image.sh zabbix-agent2:alpine-7.4-armv7 zabbix_agent2
 ```
 
 Confirms the binary actually executes under emulation and the container
