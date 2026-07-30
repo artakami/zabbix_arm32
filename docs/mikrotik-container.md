@@ -180,19 +180,121 @@ agent, etc.), which always happens the same way regardless.
 
 ## 5. Monitoring the router itself via SNMP through this proxy
 
-If the router's SNMP community restricts allowed source addresses (RouterOS's
-"SNMP Community" dialog — note that when it shows Authentication/Encryption
-Protocol fields, it's actually configuring an **SNMPv3** user, not a plain
-v1/v2c community string, despite the label), make sure the container's
-subnet is included alongside any existing allowed address:
+A common setup: this proxy also monitors the host router's own health (CPU,
+interfaces, temperature) via SNMP. That means traffic flows in the opposite
+direction from everything above — *from* the container *to* the router
+itself — which hits RouterOS's own firewall and SNMP access control, not
+just the proxy's network path.
+
+### Enable SNMP and create credentials
 
 ```
-/snmp/community/set [find name=<community-name>] \
-    addresses=<existing-address>,172.18.0.0/24
+/snmp/set enabled=yes
 ```
 
-This alone is not sufficient if the router's own firewall also blocks it —
-see the `input`-chain note in section 2.
+RouterOS's "SNMP Community" dialog (`/snmp/community`) is overloaded: when
+it shows Authentication Protocol / Encryption Protocol fields and a
+`security` setting, it's actually configuring an **SNMPv3 USM user**, not a
+plain v1/v2c community string, despite the label. Create one for Zabbix to
+use — start with just the server's own address; the container's subnet gets
+added next:
+
+```
+/snmp/community/add name=zabbix addresses=<zabbix-server-ip>/32 \
+    security=private read-access=yes \
+    authentication-protocol=MD5 authentication-password=<auth-passphrase> \
+    encryption-protocol=AES encryption-password=<priv-passphrase>
+```
+
+### Allow the container's subnet to query it too
+
+Once the *proxy* is responsible for polling this host instead of the server
+polling it directly, queries arrive from the container's subnet, not the
+server's IP. Add it to the same community's allow-list rather than creating
+a second one:
+
+```
+/snmp/community/set [find name=zabbix] \
+    addresses=<zabbix-server-ip>/32,172.18.0.0/24
+```
+
+### Open the firewall for it
+
+The community's address list alone isn't enough — RouterOS's `input` chain
+(see the catch-all `drop` note in section 2) will silently drop the query
+before the SNMP service ever evaluates it. Find where that catch-all rule
+sits:
+
+```
+/ip/firewall/filter/print where chain=input
+```
+
+Note the `#` of the final `drop`-everything rule (commonly something like
+`action=drop in-interface-list=!LAN`), then insert an explicit accept
+*before* it — don't add the whole bridge to `LAN` instead, that can
+implicitly grant broader access via other LAN-scoped rules:
+
+```
+/ip/firewall/filter/add chain=input action=accept protocol=udp \
+    src-address=172.18.0.0/24 in-interface=zbx-proxy-br dst-port=161 \
+    place-before=<number-of-the-catch-all-drop-rule-from-above> \
+    comment="SNMP from Zabbix proxy container"
+```
+
+**`in-interface=zbx-proxy-br` is load-bearing, not incidental** — it scopes
+this accept rule to traffic arriving specifically via the container's own
+internal bridge. Port 161 is never opened on the WAN/internet-facing
+interface by this rule; a request claiming to be from `172.18.0.0/24` but
+arriving on any other interface (including WAN) still gets caught by the
+catch-all drop, exactly as before. Never broaden this to
+`in-interface-list=LAN` or drop the `in-interface` match entirely just to
+make it work faster — if it's still failing, the fix is finding the real
+cause (see the verification step below), not widening the rule. This is a
+separate, internal-only accept, unrelated to whatever rule you may already
+have allowing SNMP from `in-interface-list=WAN` for the Zabbix *server*
+polling the router directly (if you have one) — don't reuse or widen that
+one for the container either.
+
+### Configure the matching SNMP interface on the Zabbix host
+
+On the host object being monitored (the router itself), the SNMP interface
+must match exactly what you just created — this is the part that's easy to
+get subtly wrong, since RouterOS's terminology doesn't map obviously onto
+Zabbix's UI fields:
+
+| Zabbix field | Value |
+|---|---|
+| SNMP version | **v3** |
+| Security name | the community `name=` above (`zabbix`) |
+| Security level | **authPriv** — RouterOS's `security=private` means both authentication *and* privacy/encryption |
+| Authentication protocol / passphrase | matches `authentication-protocol` / `authentication-password` |
+| Privacy protocol / passphrase | matches `encryption-protocol` / `encryption-password` |
+
+A mismatch here (e.g. Zabbix configured for v2c, or `authNoPriv` instead of
+`authPriv`) fails as a plain timeout, with no "wrong credentials" error —
+indistinguishable from the firewall dropping it, which is why the next step
+matters.
+
+### Verify it actually works end to end
+
+```
+/tool/sniffer quick interface=zbx-proxy-br ip-address=<router-ip>/32 port=161
+```
+
+Trigger a check from Zabbix (**Monitoring → Latest data** → the item →
+**Execute now**) while the sniffer runs. This works even with an active
+proxy — the server queues the request and the proxy picks it up on its own
+next check-in, not instantly, but there's no need to wait for a full polling
+interval. Then read the result:
+
+- **No packets captured at all** — the query isn't reaching this interface;
+  recheck the container's own networking (section 2), not the SNMP config.
+- **Query goes out, no reply comes back** — it's reaching the router but
+  getting dropped before the SNMP service responds. Almost always the
+  firewall `input` chain — double-check the accept rule above is genuinely
+  placed *before* the catch-all drop, not after it.
+- **Query and reply both appear** — it's working; Zabbix's cached
+  "Not available" status on the host just hasn't refreshed yet.
 
 ## Troubleshooting checklist
 
